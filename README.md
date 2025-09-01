@@ -62,4 +62,4 @@ result = queue.execute(image)
 
 ## Attribution
 
-A significant portion of this codebase was generated with assistance from Claude (Anthropic's AI assistant). The core architecture, filter implementations, and documentation were developed through AI-assisted programming.
+A significant portion of this codebase was generated with assistance from Claude. The core architecture, filter implementations, and documentation were developed through AI-assisted programming.

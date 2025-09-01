@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-# Note: This project was developed with assistance from Claude (Anthropic's AI assistant)
+# Note: This project was developed with assistance from Claude
 
 setup(
     name="image-processing-filter-library",

@@ -13,7 +13,7 @@ This library provides:
 - Performance optimization features (memory management, chunked processing)
 
 Note: A significant portion of this codebase was generated with assistance from 
-Claude (Anthropic's AI assistant).
+Claude.
 
 Quick Start:
     >>> from image_processing_library import BaseFilter, DataType, ColorFormat

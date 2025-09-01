@@ -5,7 +5,7 @@ This module contains the BaseFilter class and FilterMetadata dataclass
 that provide common functionality for all filters including progress tracking,
 timing, error handling, and parameter management.
 
-Note: This implementation was developed with assistance from Claude (Anthropic's AI assistant).
+Note: This implementation was developed with assistance from Claude .
 """
 
 from dataclasses import dataclass, field
