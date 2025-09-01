@@ -1,0 +1,12 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+include pyproject.toml
+include setup.py
+recursive-include image_processing_library *.py
+recursive-include image_processing_library/presets *.json
+recursive-include examples *.py
+recursive-include docs *.md *.rst *.txt
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .DS_Store

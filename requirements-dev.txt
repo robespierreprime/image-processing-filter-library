@@ -1,0 +1,19 @@
+# Include base requirements
+-r requirements.txt
+
+# Development dependencies
+pytest>=6.0.0
+pytest-cov>=2.10.0
+black>=21.0.0
+flake8>=3.8.0
+mypy>=0.800
+isort>=5.0.0
+
+# Documentation
+sphinx>=4.0.0
+sphinx-rtd-theme>=0.5.0
+myst-parser>=0.15.0
+
+# Performance (optional)
+numba>=0.50.0
+scikit-image>=0.18.0
