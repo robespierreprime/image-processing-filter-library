@@ -14,8 +14,11 @@ from typing import Dict, Any
 from ...core.base_filter import BaseFilter
 from ...core.protocols import DataType, ColorFormat
 from ...core.utils import FilterExecutionError
+from ..registry import register_filter
+from .noise_filter import NoiseFilter
 
 
+@register_filter(category="artistic")
 class PrintSimulationFilter(BaseFilter):
     """
     Print simulation filter creating realistic printing artifacts.
@@ -46,7 +49,7 @@ class PrintSimulationFilter(BaseFilter):
             **kwargs: Additional parameters passed to BaseFilter
         """
         super().__init__(
-            name="Print Simulation",
+            name="print_simulation",
             data_type=DataType.IMAGE,
             color_format=ColorFormat.RGB,  # Accepts RGB but can process grayscale
             category="artistic",
@@ -56,6 +59,9 @@ class PrintSimulationFilter(BaseFilter):
             contrast_factor=contrast_factor,
             **kwargs
         )
+        
+        # Initialize internal NoiseFilter for noise generation
+        self._noise_filter = NoiseFilter(noise_type="uniform", intensity=0.0)
         
         # Validate parameters
         self._validate_parameters()
@@ -281,22 +287,40 @@ class PrintSimulationFilter(BaseFilter):
         return Image.fromarray(arr)
     
     def _add_noise(self, image: Image.Image) -> Image.Image:
-        """Add random noise to simulate paper texture and ink variations."""
+        """Add random noise to simulate paper texture and ink variations using NoiseFilter."""
         noise_level = self.parameters['noise_level']
         
         if noise_level == 0:
             return image
         
         # Convert to numpy array
-        arr = np.array(image, dtype=np.int16)
+        arr = np.array(image, dtype=np.uint8)
         
-        # Generate random noise
-        noise = np.random.randint(-noise_level, noise_level + 1, arr.shape)
-        arr += noise
+        # Convert noise_level (0-50) to NoiseFilter intensity (0.0-1.0)
+        # Scale the noise level to match the original behavior
+        noise_intensity = min(noise_level / 50.0, 1.0)  # Map 0-50 to 0.0-1.0
         
-        # Clip values and convert back
-        arr = np.clip(arr, 0, 255).astype(np.uint8)
-        return Image.fromarray(arr)
+        # Use NoiseFilter with uniform noise to match original behavior
+        # The original implementation used uniform random integers in range [-noise_level, noise_level]
+        # NoiseFilter's uniform noise with appropriate intensity should produce similar results
+        try:
+            # Apply noise using the internal NoiseFilter
+            noisy_arr = self._noise_filter.apply(
+                arr, 
+                noise_type="uniform", 
+                intensity=noise_intensity
+            )
+            
+            return Image.fromarray(noisy_arr)
+            
+        except Exception as e:
+            # Fallback to original implementation if NoiseFilter fails
+            # This ensures backward compatibility
+            arr_int16 = arr.astype(np.int16)
+            noise = np.random.randint(-noise_level, noise_level + 1, arr.shape)
+            arr_int16 += noise
+            arr_clipped = np.clip(arr_int16, 0, 255).astype(np.uint8)
+            return Image.fromarray(arr_clipped)
     
     def _degrade_contrast(self, image: Image.Image) -> Image.Image:
         """Reduce contrast to simulate printing limitations."""

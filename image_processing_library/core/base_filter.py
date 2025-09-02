@@ -131,6 +131,9 @@ class BaseFilter:
             **kwargs: Parameter names and values to update
         """
         self.parameters.update(kwargs)
+        # Call parameter validation if the method exists
+        if hasattr(self, '_validate_parameters'):
+            self._validate_parameters()
     
     def _record_shapes(self, input_data: np.ndarray, output_data: np.ndarray) -> None:
         """

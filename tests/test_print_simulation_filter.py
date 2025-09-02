@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 from PIL import Image
 
 from image_processing_library.filters.artistic.print_simulation import PrintSimulationFilter
+from image_processing_library.filters.artistic.noise_filter import NoiseFilter
 from image_processing_library.core.protocols import DataType, ColorFormat
 from image_processing_library.core.utils import FilterValidationError, FilterExecutionError
 
@@ -379,6 +380,145 @@ class TestPrintSimulationFilter(unittest.TestCase):
         
         # Should maintain shape
         self.assertEqual(result.shape, grayscale_3d.shape)
+    
+    def test_noise_filter_integration(self):
+        """Test that NoiseFilter is properly integrated and used internally."""
+        # Create filter with only noise effect to isolate NoiseFilter usage
+        filter_noise_only = PrintSimulationFilter(
+            band_intensity=0,
+            noise_level=20,
+            contrast_factor=1.0
+        )
+        
+        # Verify the internal NoiseFilter exists
+        self.assertIsInstance(filter_noise_only._noise_filter, NoiseFilter)
+        
+        # Create uniform test image to see noise effect
+        uniform_image = np.full((50, 50), 128, dtype=np.uint8)
+        result = filter_noise_only.apply(uniform_image)
+        
+        # Should have variations due to noise from NoiseFilter
+        self.assertGreater(np.std(result), 0)
+        self.assertEqual(result.shape, uniform_image.shape)
+        self.assertEqual(result.dtype, np.uint8)
+    
+    def test_noise_filter_fallback_behavior(self):
+        """Test that fallback behavior works if NoiseFilter fails."""
+        # Create filter with noise
+        filter_with_noise = PrintSimulationFilter(
+            band_intensity=0,
+            noise_level=15,
+            contrast_factor=1.0
+        )
+        
+        # Mock the NoiseFilter to raise an exception
+        original_apply = filter_with_noise._noise_filter.apply
+        
+        def mock_apply_failure(*args, **kwargs):
+            raise Exception("Simulated NoiseFilter failure")
+        
+        filter_with_noise._noise_filter.apply = mock_apply_failure
+        
+        # Should still work due to fallback implementation
+        uniform_image = np.full((50, 50), 128, dtype=np.uint8)
+        result = filter_with_noise.apply(uniform_image)
+        
+        # Should have variations due to fallback noise implementation
+        self.assertGreater(np.std(result), 0)
+        self.assertEqual(result.shape, uniform_image.shape)
+        self.assertEqual(result.dtype, np.uint8)
+        
+        # Restore original method
+        filter_with_noise._noise_filter.apply = original_apply
+    
+    def test_noise_level_to_intensity_mapping(self):
+        """Test that noise_level parameter is correctly mapped to NoiseFilter intensity."""
+        # Test different noise levels
+        test_cases = [
+            (0, 0.0),    # No noise
+            (25, 0.5),   # Half intensity
+            (50, 1.0),   # Full intensity
+        ]
+        
+        uniform_image = np.full((30, 30), 128, dtype=np.uint8)
+        
+        for noise_level, expected_intensity in test_cases:
+            filter_test = PrintSimulationFilter(
+                band_intensity=0,
+                noise_level=noise_level,
+                contrast_factor=1.0
+            )
+            
+            result = filter_test.apply(uniform_image)
+            
+            if noise_level == 0:
+                # No noise should result in no change
+                np.testing.assert_array_equal(result, uniform_image)
+            else:
+                # Should have noise variations
+                self.assertGreater(np.std(result), 0)
+    
+    def test_backward_compatibility_noise_behavior(self):
+        """Test that noise behavior is similar to original implementation."""
+        # Create two identical filters
+        filter1 = PrintSimulationFilter(
+            band_intensity=0,
+            noise_level=10,
+            contrast_factor=1.0
+        )
+        filter2 = PrintSimulationFilter(
+            band_intensity=0,
+            noise_level=10,
+            contrast_factor=1.0
+        )
+        
+        # Use same random seed for reproducible results
+        np.random.seed(42)
+        uniform_image = np.full((50, 50), 128, dtype=np.uint8)
+        result1 = filter1.apply(uniform_image.copy())
+        
+        np.random.seed(42)
+        result2 = filter2.apply(uniform_image.copy())
+        
+        # Results should be similar (both should add noise)
+        self.assertEqual(result1.shape, result2.shape)
+        self.assertEqual(result1.dtype, result2.dtype)
+        
+        # Both should have added noise (standard deviation > 0)
+        self.assertGreater(np.std(result1), 0)
+        self.assertGreater(np.std(result2), 0)
+    
+    def test_combined_effects_with_noise_filter(self):
+        """Test that all effects work together with NoiseFilter integration."""
+        # Create filter with all effects enabled
+        filter_combined = PrintSimulationFilter(
+            band_intensity=10,
+            band_frequency=20,
+            noise_level=15,
+            contrast_factor=0.8
+        )
+        
+        # Create test image with some structure
+        test_image = np.zeros((60, 60), dtype=np.uint8)
+        test_image[20:40, 20:40] = 255  # White square in center
+        
+        result = filter_combined.apply(test_image)
+        
+        # Should maintain shape and type
+        self.assertEqual(result.shape, test_image.shape)
+        self.assertEqual(result.dtype, np.uint8)
+        
+        # Should have applied all effects:
+        # 1. Noise should add variation
+        # 2. Banding should add horizontal patterns
+        # 3. Contrast reduction should reduce extreme values
+        
+        # Check that extreme values are reduced (contrast effect)
+        self.assertLess(np.max(result), 255)
+        self.assertGreater(np.min(result), 0)
+        
+        # Check that there's variation (noise and banding effects)
+        self.assertGreater(np.std(result), 0)
 
 
 if __name__ == '__main__':

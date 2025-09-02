@@ -16,8 +16,11 @@ from typing import Dict, Any, Optional
 from ...core.base_filter import BaseFilter
 from ...core.protocols import DataType, ColorFormat
 from ...core.utils import FilterExecutionError
+from ..registry import register_filter
+from .rgb_shift_filter import RGBShiftFilter
 
 
+@register_filter(category="artistic")
 class GlitchFilter(BaseFilter):
     """
     Digital glitch effect filter creating pixel shifts and compression artifacts.
@@ -50,7 +53,7 @@ class GlitchFilter(BaseFilter):
             **kwargs: Additional parameters passed to BaseFilter
         """
         super().__init__(
-            name="Glitch Effect",
+            name="glitch_effect",
             data_type=DataType.IMAGE,
             color_format=ColorFormat.RGB,
             category="artistic",
@@ -64,6 +67,9 @@ class GlitchFilter(BaseFilter):
         
         # Validate parameters
         self._validate_parameters()
+        
+        # Initialize RGB shift filter for color channel shifting
+        self._rgb_shift_filter = RGBShiftFilter()
     
     def _validate_parameters(self) -> None:
         """Validate filter parameters are within acceptable ranges."""
@@ -285,19 +291,30 @@ class GlitchFilter(BaseFilter):
         return result
     
     def _color_channel_shift(self, image_array: np.ndarray) -> np.ndarray:
-        """Shift individual color channels for chromatic aberration effect."""
-        result = image_array.copy()
+        """Shift individual color channels for chromatic aberration effect using RGBShiftFilter."""
+        # Generate random shifts for each channel (maintaining original behavior)
+        red_shift = (0, 0)
+        green_shift = (0, 0)
+        blue_shift = (0, 0)
         
-        for channel in range(3):  # RGB channels
-            if random.random() < 0.6:  # 60% chance per channel
-                shift = random.randint(-3, 3)
-                if shift != 0:
-                    if shift > 0:
-                        result[:, shift:, channel] = image_array[:, :-shift, channel]
-                    else:
-                        result[:, :shift, channel] = image_array[:, -shift:, channel]
+        # 60% chance per channel to apply shift (original behavior)
+        if random.random() < 0.6:
+            red_shift = (random.randint(-3, 3), 0)
         
-        return result
+        if random.random() < 0.6:
+            green_shift = (random.randint(-3, 3), 0)
+        
+        if random.random() < 0.6:
+            blue_shift = (random.randint(-3, 3), 0)
+        
+        # Use RGBShiftFilter to apply the shifts
+        return self._rgb_shift_filter.apply(
+            image_array,
+            red_shift=red_shift,
+            green_shift=green_shift,
+            blue_shift=blue_shift,
+            edge_mode="clip"  # Use clip mode to match original behavior
+        )
     
     def _jpeg_corruption(self, image_array: np.ndarray) -> np.ndarray:
         """Apply JPEG compression artifacts."""
