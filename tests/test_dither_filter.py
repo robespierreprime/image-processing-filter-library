@@ -28,12 +28,14 @@ class TestDitherFilterInitialization:
         filter_instance = DitherFilter(
             pattern_type="bayer",
             levels=16,
-            bayer_size=8
+            bayer_size=8,
+            pixel_step=4
         )
         
         assert filter_instance.parameters['pattern_type'] == "bayer"
         assert filter_instance.parameters['levels'] == 16
         assert filter_instance.parameters['bayer_size'] == 8
+        assert filter_instance.parameters['pixel_step'] == 4
     
     def test_parameter_updates(self):
         """Test parameter updates after initialization."""
@@ -42,13 +44,15 @@ class TestDitherFilterInitialization:
         filter_instance.set_parameters(
             pattern_type="random",
             levels=4,
-            bayer_size=2
+            bayer_size=2,
+            pixel_step=8
         )
         
         params = filter_instance.get_parameters()
         assert params['pattern_type'] == "random"
         assert params['levels'] == 4
         assert params['bayer_size'] == 2
+        assert params['pixel_step'] == 8
 
 
 class TestDitherFilterParameterValidation:
@@ -72,10 +76,9 @@ class TestDitherFilterParameterValidation:
     def test_invalid_pattern_type_non_string(self):
         """Test validation rejects non-string pattern types."""
         filter_instance = DitherFilter()
-        filter_instance.set_parameters(pattern_type=123)
         
         with pytest.raises(FilterValidationError, match="pattern_type must be a string"):
-            filter_instance._validate_parameters()
+            filter_instance.set_parameters(pattern_type=123)
     
     def test_valid_levels_range(self):
         """Test validation accepts valid levels values."""
@@ -98,14 +101,13 @@ class TestDitherFilterParameterValidation:
     def test_invalid_levels_type(self):
         """Test validation rejects non-integer levels values."""
         filter_instance = DitherFilter()
-        filter_instance.set_parameters(levels=8.5)
         
         with pytest.raises(FilterValidationError, match="levels must be an integer"):
-            filter_instance._validate_parameters()
+            filter_instance.set_parameters(levels=8.5)
     
     def test_valid_bayer_sizes(self):
         """Test validation accepts valid bayer_size values."""
-        valid_sizes = [2, 4, 8]
+        valid_sizes = [2, 4, 8, 16, 32, 64]
         
         for size in valid_sizes:
             filter_instance = DitherFilter(bayer_size=size)
@@ -113,7 +115,7 @@ class TestDitherFilterParameterValidation:
     
     def test_invalid_bayer_sizes(self):
         """Test validation rejects invalid bayer_size values."""
-        invalid_sizes = [1, 3, 6, 16]
+        invalid_sizes = [1, 3, 6, 12, 128]
         
         for size in invalid_sizes:
             filter_instance = DitherFilter(bayer_size=size)
@@ -124,10 +126,34 @@ class TestDitherFilterParameterValidation:
     def test_invalid_bayer_size_type(self):
         """Test validation rejects non-integer bayer_size values."""
         filter_instance = DitherFilter()
-        filter_instance.set_parameters(bayer_size=4.0)
         
         with pytest.raises(FilterValidationError, match="bayer_size must be an integer"):
-            filter_instance._validate_parameters()
+            filter_instance.set_parameters(bayer_size=4.0)
+    
+    def test_valid_pixel_step_range(self):
+        """Test validation accepts valid pixel_step values."""
+        valid_steps = [1, 2, 4, 8, 16, 32, 64]
+        
+        for step in valid_steps:
+            filter_instance = DitherFilter(pixel_step=step)
+            filter_instance._validate_parameters()  # Should not raise
+    
+    def test_invalid_pixel_step_range(self):
+        """Test validation rejects pixel_step values outside [1, 64]."""
+        invalid_steps = [0, -1, 65, 100]
+        
+        for step in invalid_steps:
+            filter_instance = DitherFilter(pixel_step=step)
+            
+            with pytest.raises(FilterValidationError, match="pixel_step must be in range"):
+                filter_instance._validate_parameters()
+    
+    def test_invalid_pixel_step_type(self):
+        """Test validation rejects non-integer pixel_step values."""
+        filter_instance = DitherFilter()
+        
+        with pytest.raises(FilterValidationError, match="pixel_step must be an integer"):
+            filter_instance.set_parameters(pixel_step=4.0)
 
 
 class TestDitherFilterInputValidation:
@@ -290,9 +316,9 @@ class TestDitherFilterBayer:
     
     def test_bayer_different_sizes(self):
         """Test Bayer dithering with different matrix sizes."""
-        original = np.full((32, 32, 3), 128, dtype=np.uint8)
+        original = np.full((64, 64, 3), 128, dtype=np.uint8)
         
-        for bayer_size in [2, 4, 8]:
+        for bayer_size in [2, 4, 8, 16, 32, 64]:
             filter_instance = DitherFilter(
                 pattern_type="bayer", 
                 levels=4, 
@@ -329,6 +355,12 @@ class TestDitherFilterBayer:
         assert matrix_8.shape == (8, 8)
         assert np.all(matrix_8 >= 0)
         assert np.all(matrix_8 < 64)  # Values should be 0-63 for 8x8
+        
+        # Test 16x16 matrix
+        matrix_16 = filter_instance._generate_bayer_matrix(16)
+        assert matrix_16.shape == (16, 16)
+        assert np.all(matrix_16 >= 0)
+        assert np.all(matrix_16 < 256)  # Values should be 0-255 for 16x16
     
     def test_bayer_grayscale(self):
         """Test Bayer dithering on grayscale images."""
@@ -535,6 +567,110 @@ class TestDitherFilterIntegration:
         
         # Dithering should not use in-place processing
         assert not filter_instance.metadata.used_inplace_processing
+
+
+class TestDitherFilterPixelStep:
+    """Test pixel step functionality for chunky/pixelated dithering."""
+    
+    def test_pixel_step_basic_functionality(self):
+        """Test basic pixel step functionality."""
+        filter_instance = DitherFilter(pattern_type="bayer", levels=4, pixel_step=4)
+        original = np.random.randint(0, 256, (64, 64, 3), dtype=np.uint8)
+        
+        result = filter_instance.apply(original)
+        
+        # Result should be same shape and type
+        assert result.shape == original.shape
+        assert result.dtype == original.dtype
+        
+        # Should be quantized
+        unique_values = len(np.unique(result))
+        assert unique_values <= 4
+    
+    def test_pixel_step_chunky_effect(self):
+        """Test that pixel_step creates chunky/pixelated effect."""
+        # Create a gradient image
+        gradient = np.linspace(0, 255, 64).astype(np.uint8)
+        test_image = np.tile(gradient.reshape(1, -1, 1), (64, 1, 3))
+        
+        # Test with different pixel steps
+        for pixel_step in [1, 2, 4, 8]:
+            filter_instance = DitherFilter(
+                pattern_type="bayer", 
+                levels=4, 
+                pixel_step=pixel_step
+            )
+            result = filter_instance.apply(test_image.copy())
+            
+            # Check that blocks of pixels have the same value
+            if pixel_step > 1:
+                # Sample a few blocks to verify they're uniform
+                for y in range(0, 64 - pixel_step, pixel_step):
+                    for x in range(0, 64 - pixel_step, pixel_step):
+                        block = result[y:y+pixel_step, x:x+pixel_step]
+                        # All pixels in the block should be the same
+                        assert np.all(block == block[0, 0])
+    
+    def test_pixel_step_with_different_algorithms(self):
+        """Test pixel_step works with all dithering algorithms."""
+        original = np.random.randint(0, 256, (32, 32, 3), dtype=np.uint8)
+        pixel_step = 4
+        
+        algorithms = ["floyd_steinberg", "bayer", "random"]
+        
+        for algorithm in algorithms:
+            filter_instance = DitherFilter(
+                pattern_type=algorithm,
+                levels=4,
+                pixel_step=pixel_step
+            )
+            
+            result = filter_instance.apply(original.copy())
+            
+            # Should produce valid results
+            assert result.shape == original.shape
+            assert result.dtype == original.dtype
+            
+            # Should be quantized
+            unique_values = len(np.unique(result))
+            assert unique_values <= 4
+    
+    def test_pixel_step_grayscale(self):
+        """Test pixel_step works with grayscale images."""
+        filter_instance = DitherFilter(
+            pattern_type="bayer", 
+            levels=2, 
+            pixel_step=8
+        )
+        original = np.random.randint(0, 256, (64, 64), dtype=np.uint8)
+        
+        result = filter_instance.apply(original)
+        
+        # Result should be same shape and type
+        assert result.shape == original.shape
+        assert result.dtype == original.dtype
+        
+        # Should be binary
+        unique_values = np.unique(result)
+        assert len(unique_values) <= 2
+    
+    def test_pixel_step_edge_cases(self):
+        """Test pixel_step with edge cases."""
+        # Test with pixel_step = 1 (should be normal dithering)
+        filter_normal = DitherFilter(pattern_type="bayer", levels=4, pixel_step=1)
+        filter_chunky = DitherFilter(pattern_type="bayer", levels=4, pixel_step=4)
+        
+        original = np.random.randint(0, 256, (32, 32, 3), dtype=np.uint8)
+        
+        result_normal = filter_normal.apply(original.copy())
+        result_chunky = filter_chunky.apply(original.copy())
+        
+        # Results should be different
+        assert not np.array_equal(result_normal, result_chunky)
+        
+        # Both should be properly quantized
+        assert len(np.unique(result_normal)) <= 4
+        assert len(np.unique(result_chunky)) <= 4
 
 
 class TestDitherFilterQuantizationAccuracy:

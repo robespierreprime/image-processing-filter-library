@@ -207,8 +207,9 @@ Applies dithering effects with multiple pattern types to create stylized reduced
 **Category:** artistic  
 **Parameters:**
 - `pattern_type` (str): "floyd_steinberg", "bayer", or "random"
-- `levels` (int, 2-256): Number of quantization levels per channel
-- `bayer_size` (int, 2-8): Size of Bayer matrix (for Bayer dithering only)
+- `levels` (int, 2-256): Number of quantization levels per channel (now works correctly!)
+- `bayer_size` (int, 2-64): Size of Bayer matrix (supports larger sizes for high-res images)
+- `pixel_step` (int, 1-64): Size of pixel blocks for chunky/pixelated dithering (NEW!)
 
 **Color Formats:** RGB, RGBA, GRAYSCALE  
 
@@ -216,23 +217,34 @@ Applies dithering effects with multiple pattern types to create stylized reduced
 ```python
 from image_processing_library.filters.artistic.dither_filter import DitherFilter
 
-# Floyd-Steinberg error diffusion dithering
-dither_filter = DitherFilter(pattern_type="floyd_steinberg", levels=4)
-result = dither_filter.apply(image)
+# Floyd-Steinberg error diffusion dithering with binary output
+dither_filter = DitherFilter(pattern_type="floyd_steinberg", levels=2)
+result = dither_filter.apply(image)  # Produces exactly 2 colors
 
-# Bayer ordered dithering
-dither_filter.set_parameters(pattern_type="bayer", levels=8, bayer_size=4)
-bayer_result = dither_filter.apply(image)
+# Bayer ordered dithering with large matrix for high-res images
+dither_filter.set_parameters(pattern_type="bayer", levels=8, bayer_size=32)
+bayer_result = dither_filter.apply(image)  # Fine dithering pattern
 
 # Random threshold dithering
-dither_filter.set_parameters(pattern_type="random", levels=6)
-random_result = dither_filter.apply(image)
+dither_filter.set_parameters(pattern_type="random", levels=4)
+random_result = dither_filter.apply(image)  # Produces exactly 4 colors
+
+# NEW: Chunky/pixelated dithering with pixel_step
+dither_filter.set_parameters(pattern_type="bayer", levels=2, pixel_step=8)
+chunky_result = dither_filter.apply(image)  # Creates 8x8 pixel blocks
 ```
+
+**Recent Improvements:**
+- **Fixed levels parameter**: Now produces exactly the specified number of colors
+- **Larger Bayer matrices**: Supports sizes up to 64x64 for better patterns on high-resolution images
+- **Better quantization**: More accurate color reduction with proper level distribution
+- **NEW pixel_step parameter**: Creates chunky/pixelated dithering effects for retro aesthetics
 
 **Effect:** 
 - **Floyd-Steinberg**: Uses error diffusion to distribute quantization errors to neighboring pixels
-- **Bayer**: Uses ordered dithering with Bayer matrices for regular patterns
+- **Bayer**: Uses ordered dithering with Bayer matrices for regular patterns (larger sizes = finer patterns)
 - **Random**: Uses random thresholds for each pixel, creating a noisy appearance
+- **pixel_step**: Creates chunky blocks of pixels for retro/pixelated effects (higher values = chunkier)
 
 ---
 
