@@ -122,7 +122,6 @@ The library now includes a comprehensive set of enhancement and artistic filters
 - `MotionBlurFilter` - Directional motion blur
 
 #### Artistic Filters
-- `DitherFilter` - Multiple dithering algorithms (Floyd-Steinberg, Bayer, Random)
 - `RGBShiftFilter` - Independent RGB channel shifting
 - `NoiseFilter` - Various noise types (Gaussian, Salt-pepper, Uniform)
 
@@ -179,7 +178,6 @@ from image_processing_library.filters.enhancement.blur_filters import (
 )
 
 # Artistic filters
-from image_processing_library.filters.artistic.dither_filter import DitherFilter
 from image_processing_library.filters.artistic.rgb_shift_filter import RGBShiftFilter
 from image_processing_library.filters.artistic.noise_filter import NoiseFilter
 ```

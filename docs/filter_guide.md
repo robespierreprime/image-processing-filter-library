@@ -200,53 +200,7 @@ diagonal_blur = motion_filter.apply(image)
 
 Artistic filters create special effects and stylized appearances.
 
-### DitherFilter
 
-Applies dithering effects with multiple pattern types to create stylized reduced-color representations.
-
-**Category:** artistic  
-**Parameters:**
-- `pattern_type` (str): "floyd_steinberg", "bayer", or "random"
-- `levels` (int, 2-256): Number of quantization levels per channel (now works correctly!)
-- `bayer_size` (int, 2-64): Size of Bayer matrix (supports larger sizes for high-res images)
-- `pixel_step` (int, 1-64): Size of pixel blocks for chunky/pixelated dithering (NEW!)
-
-**Color Formats:** RGB, RGBA, GRAYSCALE  
-
-**Usage:**
-```python
-from image_processing_library.filters.artistic.dither_filter import DitherFilter
-
-# Floyd-Steinberg error diffusion dithering with binary output
-dither_filter = DitherFilter(pattern_type="floyd_steinberg", levels=2)
-result = dither_filter.apply(image)  # Produces exactly 2 colors
-
-# Bayer ordered dithering with large matrix for high-res images
-dither_filter.set_parameters(pattern_type="bayer", levels=8, bayer_size=32)
-bayer_result = dither_filter.apply(image)  # Fine dithering pattern
-
-# Random threshold dithering
-dither_filter.set_parameters(pattern_type="random", levels=4)
-random_result = dither_filter.apply(image)  # Produces exactly 4 colors
-
-# NEW: Chunky/pixelated dithering with pixel_step
-dither_filter.set_parameters(pattern_type="bayer", levels=2, pixel_step=8)
-chunky_result = dither_filter.apply(image)  # Creates 8x8 pixel blocks
-```
-
-**Recent Improvements:**
-- **Fixed levels parameter**: Now produces exactly the specified number of colors
-- **Larger Bayer matrices**: Supports sizes up to 64x64 for better patterns on high-resolution images
-- **Better quantization**: More accurate color reduction with proper level distribution
-- **NEW pixel_step parameter**: Creates chunky/pixelated dithering effects for retro aesthetics
-
-**Effect:** 
-- **Floyd-Steinberg**: Uses error diffusion to distribute quantization errors to neighboring pixels
-- **Bayer**: Uses ordered dithering with Bayer matrices for regular patterns (larger sizes = finer patterns)
-- **Random**: Uses random thresholds for each pixel, creating a noisy appearance
-- **pixel_step**: Creates chunky blocks of pixels for retro/pixelated effects (higher values = chunkier)
-
----
 
 ### RGBShiftFilter
 
@@ -349,7 +303,7 @@ result = queue.execute(image)
 
 1. **Parameter Optimization**: Use identity values (gamma=1.0, contrast=1.0, etc.) to skip processing
 2. **Memory Management**: Process large images in chunks using the library's built-in chunking
-3. **Filter Order**: Apply computationally expensive filters (blur, dither) last in chains
+3. **Filter Order**: Apply computationally expensive filters (blur) last in chains
 4. **Batch Processing**: Use ExecutionQueue for consistent parameter application across multiple images
 
 ## Common Use Cases
@@ -382,5 +336,4 @@ queue.add_filter(RGBShiftFilter, {
     "blue_shift": (-2, -1)
 })
 queue.add_filter(NoiseFilter, {"noise_type": "salt_pepper", "intensity": 0.02})
-queue.add_filter(DitherFilter, {"pattern_type": "bayer", "levels": 16})
 ```

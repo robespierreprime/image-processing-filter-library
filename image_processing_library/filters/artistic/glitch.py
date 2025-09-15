@@ -35,11 +35,15 @@ class GlitchFilter(BaseFilter):
     """
     
     def __init__(self, 
-                 shift_intensity: int = 10,
+                 shift_intensity: int = None,
                  line_width: int = 3,
-                 glitch_probability: float = 0.8,
+                 glitch_probability: float = None,
                  jpeg_quality: int = 30,
                  shift_angle: float = 0.0,
+                 # Legacy parameter names for backward compatibility
+                 intensity: float = None,
+                 shift_amount: int = None,
+                 corruption_probability: float = None,
                  **kwargs):
         """
         Initialize the glitch filter with effect parameters.
@@ -50,16 +54,30 @@ class GlitchFilter(BaseFilter):
             glitch_probability: Probability of applying glitch to each line (0.0-1.0)
             jpeg_quality: JPEG compression quality for artifacts (1-100)
             shift_angle: Angle of shift lines in degrees (0-360)
+            
+            # Legacy parameters (for backward compatibility):
+            intensity: Alternative to shift_intensity (0.0-1.0, scaled to 0-100)
+            shift_amount: Alternative to shift_intensity (0-100)
+            corruption_probability: Alternative to glitch_probability (0.0-1.0)
+            
             **kwargs: Additional parameters passed to BaseFilter
         """
+        
+        # Handle parameter mapping for backward compatibility
+        final_shift_intensity = self._resolve_shift_intensity(
+            shift_intensity, intensity, shift_amount
+        )
+        final_glitch_probability = self._resolve_glitch_probability(
+            glitch_probability, corruption_probability
+        )
         super().__init__(
-            name="glitch_effect",
+            name="Glitch Effect",
             data_type=DataType.IMAGE,
             color_format=ColorFormat.RGB,
             category="artistic",
-            shift_intensity=shift_intensity,
+            shift_intensity=final_shift_intensity,
             line_width=line_width,
-            glitch_probability=glitch_probability,
+            glitch_probability=final_glitch_probability,
             jpeg_quality=jpeg_quality,
             shift_angle=shift_angle,
             **kwargs
@@ -70,6 +88,29 @@ class GlitchFilter(BaseFilter):
         
         # Initialize RGB shift filter for color channel shifting
         self._rgb_shift_filter = RGBShiftFilter()
+    
+    def _resolve_shift_intensity(self, shift_intensity, intensity, shift_amount):
+        """Resolve shift_intensity from multiple possible parameter sources."""
+        # Priority: shift_intensity > shift_amount > intensity > default
+        if shift_intensity is not None:
+            return shift_intensity
+        elif shift_amount is not None:
+            return shift_amount
+        elif intensity is not None:
+            # Convert intensity (0.0-1.0) to shift_intensity (0-100)
+            return int(intensity * 100)
+        else:
+            return 10  # Default value
+    
+    def _resolve_glitch_probability(self, glitch_probability, corruption_probability):
+        """Resolve glitch_probability from multiple possible parameter sources."""
+        # Priority: glitch_probability > corruption_probability > default
+        if glitch_probability is not None:
+            return glitch_probability
+        elif corruption_probability is not None:
+            return corruption_probability
+        else:
+            return 0.8  # Default value
     
     def _validate_parameters(self) -> None:
         """Validate filter parameters are within acceptable ranges."""
@@ -344,18 +385,44 @@ class GlitchFilter(BaseFilter):
         Raises:
             ValueError: If invalid parameter names or values provided
         """
-        # Validate parameter names
+        # Validate parameter names (including legacy names)
         valid_params = {
             'shift_intensity', 'line_width', 'glitch_probability', 
-            'jpeg_quality', 'shift_angle'
+            'jpeg_quality', 'shift_angle',
+            # Legacy parameter names
+            'intensity', 'shift_amount', 'corruption_probability'
         }
         
         invalid_params = set(kwargs.keys()) - valid_params
         if invalid_params:
             raise ValueError(f"Invalid parameters: {invalid_params}")
         
+        # Handle parameter mapping for legacy names
+        mapped_kwargs = {}
+        
+        # Extract legacy parameters
+        intensity = kwargs.pop('intensity', None)
+        shift_amount = kwargs.pop('shift_amount', None)
+        corruption_probability = kwargs.pop('corruption_probability', None)
+        
+        # Map legacy parameters to current parameters
+        if intensity is not None or shift_amount is not None:
+            current_shift_intensity = kwargs.get('shift_intensity', self.parameters.get('shift_intensity'))
+            mapped_kwargs['shift_intensity'] = self._resolve_shift_intensity(
+                kwargs.get('shift_intensity'), intensity, shift_amount
+            )
+        
+        if corruption_probability is not None:
+            current_glitch_probability = kwargs.get('glitch_probability', self.parameters.get('glitch_probability'))
+            mapped_kwargs['glitch_probability'] = self._resolve_glitch_probability(
+                kwargs.get('glitch_probability'), corruption_probability
+            )
+        
+        # Merge mapped parameters with remaining kwargs
+        final_kwargs = {**kwargs, **mapped_kwargs}
+        
         # Update parameters
-        super().set_parameters(**kwargs)
+        super().set_parameters(**final_kwargs)
         
         # Validate new parameter values
         self._validate_parameters()

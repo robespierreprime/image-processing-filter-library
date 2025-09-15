@@ -32,7 +32,6 @@ Improve or adjust basic image properties:
 
 #### Artistic Filters
 Create special effects and stylized appearances:
-- **DitherFilter** - Retro dithering effects (Floyd-Steinberg, Bayer, Random)
 - **RGBShiftFilter** - Chromatic aberration effects
 - **NoiseFilter** - Various noise types (Gaussian, Salt-pepper, Uniform)
 - **GlitchFilter** - Digital glitch effects

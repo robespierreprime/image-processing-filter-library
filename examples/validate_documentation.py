@@ -31,7 +31,6 @@ def validate_filter_imports():
     
     # Artistic filters
     try:
-        from image_processing_library.filters.artistic.dither_filter import DitherFilter
         from image_processing_library.filters.artistic.rgb_shift_filter import RGBShiftFilter
         from image_processing_library.filters.artistic.noise_filter import NoiseFilter
         from image_processing_library.filters.artistic.glitch import GlitchFilter
@@ -111,7 +110,6 @@ def validate_filter_instantiation():
         ("MotionBlurFilter", "image_processing_library.filters.enhancement.blur_filters", {"distance": 5, "angle": 0}),
         
         # Artistic filters
-        ("DitherFilter", "image_processing_library.filters.artistic.dither_filter", {"pattern_type": "floyd_steinberg", "levels": 4}),
         ("RGBShiftFilter", "image_processing_library.filters.artistic.rgb_shift_filter", {
             "red_shift": (0, 0), "green_shift": (0, 0), "blue_shift": (0, 0)
         }),

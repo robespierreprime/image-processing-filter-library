@@ -28,7 +28,6 @@ Artistic filters create creative and stylized effects:
 
 | Filter Name | Class | Description | Parameters |
 |-------------|-------|-------------|------------|
-| `dither` | `DitherFilter` | Applies dithering effects | `pattern_type`, `levels`, `bayer_size` |
 | `rgb_shift` | `RGBShiftFilter` | Shifts RGB channels | `red_shift`, `green_shift`, `blue_shift` |
 | `noise` | `NoiseFilter` | Adds various noise types | `noise_type`, `intensity`, `salt_pepper_ratio` |
 | `Glitch Effect` | `GlitchFilter` | Creates glitch effects | Various glitch parameters |

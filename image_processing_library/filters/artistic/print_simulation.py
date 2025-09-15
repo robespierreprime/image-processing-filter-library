@@ -33,10 +33,14 @@ class PrintSimulationFilter(BaseFilter):
     """
     
     def __init__(self,
-                 band_intensity: int = 20,
+                 band_intensity: int = None,
                  band_frequency: int = 30,
-                 noise_level: int = 10,
+                 noise_level: int = None,
                  contrast_factor: float = 0.85,
+                 # Legacy/documented parameter names
+                 dot_gain: float = None,
+                 paper_texture: float = None,
+                 ink_bleeding: float = None,
                  **kwargs):
         """
         Initialize the print simulation filter with defect parameters.
@@ -46,17 +50,28 @@ class PrintSimulationFilter(BaseFilter):
             band_frequency: Spacing between bands in pixels (5-100)
             noise_level: Level of random noise (0-50)
             contrast_factor: Contrast reduction factor (0.1-1.0)
+            
+            # Documented parameters (mapped to internal parameters):
+            dot_gain: Dot gain simulation intensity (0.0-0.5) -> maps to band_intensity
+            paper_texture: Paper texture simulation intensity (0.0-1.0) -> maps to noise_level
+            ink_bleeding: Ink bleeding effect intensity (0.0-1.0) -> affects contrast_factor
+            
             **kwargs: Additional parameters passed to BaseFilter
         """
+        
+        # Handle parameter mapping for documented API
+        final_band_intensity = self._resolve_band_intensity(band_intensity, dot_gain)
+        final_noise_level = self._resolve_noise_level(noise_level, paper_texture)
+        final_contrast_factor = self._resolve_contrast_factor(contrast_factor, ink_bleeding)
         super().__init__(
-            name="print_simulation",
+            name="Print Simulation",
             data_type=DataType.IMAGE,
             color_format=ColorFormat.RGB,  # Accepts RGB but can process grayscale
             category="artistic",
-            band_intensity=band_intensity,
+            band_intensity=final_band_intensity,
             band_frequency=band_frequency,
-            noise_level=noise_level,
-            contrast_factor=contrast_factor,
+            noise_level=final_noise_level,
+            contrast_factor=final_contrast_factor,
             **kwargs
         )
         
@@ -65,6 +80,37 @@ class PrintSimulationFilter(BaseFilter):
         
         # Validate parameters
         self._validate_parameters()
+    
+    def _resolve_band_intensity(self, band_intensity, dot_gain):
+        """Resolve band_intensity from multiple possible parameter sources."""
+        if band_intensity is not None:
+            return band_intensity
+        elif dot_gain is not None:
+            # Convert dot_gain (0.0-0.5) to band_intensity (0-100)
+            return int(dot_gain * 200)  # Scale 0.5 -> 100
+        else:
+            return 20  # Default value
+    
+    def _resolve_noise_level(self, noise_level, paper_texture):
+        """Resolve noise_level from multiple possible parameter sources."""
+        if noise_level is not None:
+            return noise_level
+        elif paper_texture is not None:
+            # Convert paper_texture (0.0-1.0) to noise_level (0-50)
+            return int(paper_texture * 50)
+        else:
+            return 10  # Default value
+    
+    def _resolve_contrast_factor(self, contrast_factor, ink_bleeding):
+        """Resolve contrast_factor from multiple possible parameter sources."""
+        if contrast_factor != 0.85:  # If explicitly set (not default)
+            return contrast_factor
+        elif ink_bleeding is not None:
+            # Convert ink_bleeding (0.0-1.0) to contrast reduction
+            # Higher ink_bleeding = lower contrast
+            return 1.0 - (ink_bleeding * 0.3)  # Max reduction of 0.3
+        else:
+            return 0.85  # Default value
     
     def _validate_parameters(self) -> None:
         """Validate filter parameters are within acceptable ranges."""
@@ -343,17 +389,47 @@ class PrintSimulationFilter(BaseFilter):
         Raises:
             ValueError: If invalid parameter names or values provided
         """
-        # Validate parameter names
+        # Validate parameter names (including documented API names)
         valid_params = {
-            'band_intensity', 'band_frequency', 'noise_level', 'contrast_factor'
+            'band_intensity', 'band_frequency', 'noise_level', 'contrast_factor',
+            # Documented API parameter names
+            'dot_gain', 'paper_texture', 'ink_bleeding'
         }
         
         invalid_params = set(kwargs.keys()) - valid_params
         if invalid_params:
             raise ValueError(f"Invalid parameters: {invalid_params}")
         
+        # Handle parameter mapping for documented API names
+        mapped_kwargs = {}
+        
+        # Extract documented API parameters
+        dot_gain = kwargs.pop('dot_gain', None)
+        paper_texture = kwargs.pop('paper_texture', None)
+        ink_bleeding = kwargs.pop('ink_bleeding', None)
+        
+        # Map documented parameters to internal parameters
+        if dot_gain is not None:
+            mapped_kwargs['band_intensity'] = self._resolve_band_intensity(
+                kwargs.get('band_intensity'), dot_gain
+            )
+        
+        if paper_texture is not None:
+            mapped_kwargs['noise_level'] = self._resolve_noise_level(
+                kwargs.get('noise_level'), paper_texture
+            )
+        
+        if ink_bleeding is not None:
+            current_contrast = kwargs.get('contrast_factor', self.parameters.get('contrast_factor', 0.85))
+            mapped_kwargs['contrast_factor'] = self._resolve_contrast_factor(
+                current_contrast, ink_bleeding
+            )
+        
+        # Merge mapped parameters with remaining kwargs
+        final_kwargs = {**kwargs, **mapped_kwargs}
+        
         # Update parameters
-        super().set_parameters(**kwargs)
+        super().set_parameters(**final_kwargs)
         
         # Validate new parameter values
         self._validate_parameters()

@@ -11,14 +11,12 @@ This package contains filters for artistic and creative effects:
 
 from .glitch import GlitchFilter
 from .print_simulation import PrintSimulationFilter
-from .dither_filter import DitherFilter
 from .rgb_shift_filter import RGBShiftFilter
 from .noise_filter import NoiseFilter
 
 __all__ = [
     'GlitchFilter', 
     'PrintSimulationFilter',
-    'DitherFilter',
     'RGBShiftFilter',
     'NoiseFilter'
 ]

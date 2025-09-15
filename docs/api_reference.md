@@ -114,15 +114,6 @@ Creates directional motion blur effects.
 
 ### Artistic Filters
 
-#### DitherFilter
-Applies dithering effects with multiple pattern types.
-- **Parameters:**
-  - `pattern_type` (str): "floyd_steinberg", "bayer", or "random"
-  - `levels` (int, 2-256): Number of quantization levels per channel (fixed to work correctly)
-  - `bayer_size` (int, 2-64): Size of Bayer matrix (supports larger sizes for high-res images)
-  - `pixel_step` (int, 1-64): Size of pixel blocks for chunky/pixelated dithering (NEW!)
-- **Color Formats:** RGB, RGBA, GRAYSCALE
-
 #### RGBShiftFilter
 Shifts individual RGB color channels independently.
 - **Parameters:**
